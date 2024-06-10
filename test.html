@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Interactive 360 Image Viewer</title>
+    <style>
+        body, html { height: 100%; margin: 0; overflow: hidden; }
+        canvas { width: 100%; height: 100% }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.135.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.135.0/examples/js/controls/OrbitControls.js"></script>
+    <script>
+        var scene = new THREE.Scene();
+        var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 1100);
+        var renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('container').appendChild(renderer.domElement);
+
+        var controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.1;
+        controls.rotateSpeed = 0.5;
+        
+        var textures = [
+            new THREE.TextureLoader().load('car.jpg'),
+            new THREE.TextureLoader().load('Street View 360222.jpg')
+        ];
+        var currentTextureIndex = 0;
+        var mesh, hotspotMesh;
+
+        function initSphereWithTexture(tex) {
+            var geometry = new THREE.SphereGeometry(500, 60, 40);
+            geometry.scale(-1, 1, 1);
+            var material = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0 });
+
+            if (mesh) {
+                scene.remove(mesh);
+                mesh.geometry.dispose();
+                mesh.material.dispose();
+            }
+
+            mesh = new THREE.Mesh(geometry, material);
+            scene.add(mesh);
+            fadeIn(mesh);
+        }
+
+        function fadeIn(object) {
+            var opacity = 0;
+            var interval = setInterval(function() {
+                if (opacity >= 1) {
+                    clearInterval(interval);
+                } else {
+                    opacity += 0.1;
+                    object.material.opacity = opacity;
+                }
+                renderer.render(scene, camera);
+            }, 50);
+        }
+
+        initSphereWithTexture(textures[0]);
+
+        if (!hotspotMesh) {
+            var hotspotGeometry = new THREE.SphereGeometry(5, 32, 32);
+            var hotspotMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            hotspotMesh = new THREE.Mesh(hotspotGeometry, hotspotMaterial);
+            hotspotMesh.position.set(50, 50, -450);
+            scene.add(hotspotMesh);
+        }
+
+        camera.position.set(0, 0, 0.1);
+        animate();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // Raycaster for clicking on the hotspot
+        var raycaster = new THREE.Raycaster();
+        var mouse = new THREE.Vector2();
+
+        function onDocumentMouseDown(event) {
+            event.preventDefault();
+
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+
+            var intersects = raycaster.intersectObjects([hotspotMesh]);
+
+            if (intersects.length > 0) {
+                currentTextureIndex = (currentTextureIndex + 1) % textures.length;
+                initSphereWithTexture(textures[currentTextureIndex]);
+            }
+        }
+
+        document.addEventListener('mousedown', onDocumentMouseDown, false);
+
+    </script>
+</body>
+</html>

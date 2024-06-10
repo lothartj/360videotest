@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Interactive 360 Image Viewer</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        #drop-container { position: absolute; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
+        #drop-message { display: none; position: absolute; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); color: white; font-size: 2em; display: flex; justify-content: center; align-items: center; }
+        canvas { width: 100%; height: 100% }
+    </style>
+</head>
+<body>
+    <div id="drop-container">
+        <div id="drop-message">Drop your 360 image here</div>
+        <!-- The container for the 360 image -->
+        <div id="container"></div>
+    </div>
+
+    <!-- three.js library -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.135.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.135.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        // Set up the scene, camera, renderer, and controls
+        var scene = new THREE.Scene();
+        var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 1100);
+        var renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('container').appendChild(renderer.domElement);
+
+        // OrbitControls for camera manipulation
+        var controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true; // enable inertia for smooth interaction
+        controls.dampingFactor = 0.1; // the lower the value, the more damping
+        controls.rotateSpeed = 0.5; // slow down rotation speed
+        controls.zoomSpeed = 0.5; // slow down zoom speed
+        controls.enableZoom = true; // enable zooming
+
+        // Initialize an empty texture
+        var texture = new THREE.TextureLoader().load('');
+        var mesh;
+
+        function initSphereWithTexture(tex) {
+            texture = tex;
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.repeat.x = -1;
+
+            // Use a sphere as the geometry for the 360-degree image
+            var geometry = new THREE.SphereGeometry(500, 60, 40);
+            geometry.scale(-1, 1, 1);
+
+            // Create a material with the texture
+            var material = new THREE.MeshBasicMaterial({ map: texture });
+
+            // If mesh already exists, dispose and remove it
+            if (mesh) {
+                mesh.geometry.dispose();
+                mesh.material.dispose();
+                scene.remove(mesh);
+            }
+
+            // Combine the geometry and material into a mesh, and add it to the scene
+            mesh = new THREE.Mesh(geometry, material);
+            scene.add(mesh);
+
+            // Render the scene
+            renderer.render(scene, camera);
+        }
+
+        // Set the camera position
+        camera.position.set(0, 0, 0.1);
+
+        // Handle window resize
+        window.addEventListener('resize', onWindowResize, false);
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // Animate the scene
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update(); // update controls every frame for smooth performance
+            renderer.render(scene, camera);
+        }
+        animate(); // Start the animation loop
+
+        // Drag and drop functionality
+        var dropContainer = document.getElementById('drop-container');
+        var dropMessage = document.getElementById('drop-message');
+
+        dropContainer.ondragover = dropContainer.ondragenter = function(evt) {
+            evt.preventDefault();
+            dropMessage.style.display = 'flex';
+        };
+
+        dropContainer.ondragleave = function(evt) {
+            dropMessage.style.display = 'none';
+        };
+
+        dropContainer.ondrop = function(evt) {
+            evt.preventDefault();
+            dropMessage.style.display = 'none';
+
+            var files = evt.dataTransfer.files;
+            if (files.length > 0) {
+                var file = files[0];
+                if (file.type.match('image.*')) {
+                    var reader = new FileReader();
+                    reader.onload = function(e) {
+                        var img = new Image();
+                        img.onload = function() {
+                            var tex = new THREE.Texture(img);
+                            tex.needsUpdate = true;
+                            initSphereWithTexture(tex);
+                        };
+                        img.src = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+        };
+    </script>
+</body>
+</html>
